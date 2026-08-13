@@ -1,0 +1,437 @@
+<!doctype html>
+<html>
+<head>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="rust.css">
+  <title>What the Monad?</title>
+</head>
+
+<body>
+  <main>
+    <h1>What the Monad?</h1>
+
+    <p>
+      So, maybe<sup><a id="1-up" href="#1">1</a></sup> you've heard of the
+      scary <i>Monad</i>. Maybe you've even heard of the language <a
+      href="https://haskell.org" target="_blank" rel="noreferrer">Haskell</a>.
+      And maybe, just <i>maybe</i>, you've tried to uncover what the heck a
+      <i>Monad</i> actually is and does.
+    </p>
+
+    <p>
+      Chances are, if you tried digging around, you stumbled upon one of the
+      following things:
+    </p>
+
+    <blockquote>
+      <p>
+        A monad is just a monoid in the category of endofunctors.
+      </p>
+    </blockquote>
+
+    <img
+      style="width: 100%;"
+      src="haskell_monad.png"
+      alt="The definition of the Haskell Monad typeclass"
+    >
+
+    <p>
+      <i>I'm sorry, what?</i> That was my initial reaction when I saw this,
+      and if it was yours too, that's okay. The <i>"official"</i> definitions
+      of the Monad are very abstract and didn't mean much to me at first.
+      However, underneath these very technical terms stemming from Category
+      theory is a concept that allows us to represent something we use all the
+      time when writing code: <b>failure propagation.</b> To better explain
+      what I mean by this, let's look at a few examples in a language you
+      might already know: <a href="https://rust-lang.org" target="_blank"
+      rel="noreferrer"><b>Rust</b></a>.
+    </p>
+
+    <hr>
+    
+    <p>
+      Let's imagine that you have a function that gives you the answer to
+      Life, the Universe, and Everything. We obviously know what it is, but
+      for the sake of demonstration, let's imagine that this function can
+      fail. In Rust, you can represent this posibility with one of two types:
+      an <a href="https://doc.rust-lang.org/std/option/enum.Option.html"
+      target="_blank" rel="noreferrer"><code>Option&lt;T&gt;</code></a>,
+      or a <a href="https://doc.rust-lang.org/std/result/enum.Result.html"
+      target="_blank" rel="noreferrer"><code>Result&lt;T, E&gt;</code></a>.
+      Here, <code>T</code> (T for "Type") is the "successful" variant,
+      and <code>E</code> (E for "Error") is the "error" variant. In short,
+      <code>Option</code> can represent the presence or absence of a value,
+      while a <code>Result</code> can represent success and failure. In shorter
+      words, <code>Result</code> can hold an error while an <code>Option</code>
+      cannot.
+    </p>
+
+    <p>
+      The <code>Option&lt;T&gt;</code> type is just a little simpler, so that's
+      what we'll focus on for now. As I've already mentioned, it can represent
+      failure. It does this by having two variants: <code>Some(T)</code>, and
+      <code>None</code>. In action, it looks like this:
+    </p>
+
+<pre><code class="hcj language-rust"><span class="hcj-keyword">fn</span> <span class="hcj-title function_">fallible</span>() <span class="hcj-punctuation">-&gt;</span> <span class="hcj-type">Option</span>&lt;<span class="hcj-type">usize</span>&gt; {
+    <span class="hcj-comment">// ... some logic ...</span>
+    <span class="hcj-comment">// somewhere in this logic, the code can `return None;`</span>
+    <span class="hcj-comment">// ... more logic ...</span>
+    
+    
+    <span class="hcj-title function_ invoke__">Some</span>(<span class="hcj-number">42</span>)
+}</code></pre>
+
+    <p>
+      If we want to use the result of this function, we have a few options (pun
+      kind of intended):
+    </p>
+
+<pre><code class="hcj language-rust"><span class="hcj-keyword">let</span> <span class="hcj-variable">res</span> = <span class="hcj-title function_ invoke__">fallible</span>();
+
+<span class="hcj-comment">// 1. Pattern matching</span>
+<span class="hcj-keyword">match</span> res {
+    <span class="hcj-title function_ invoke__">Some</span>(answer) =&gt; todo!(<span class="hcj-string">&quot;do something&quot;</span>),
+    <span class="hcj-literal">None</span> =&gt; <span class="hcj-built_in">panic!</span>(<span class="hcj-string">&quot;drat!&quot;</span>)
+}
+
+<span class="hcj-comment">// 2. Pattern matching, again</span>
+<span class="hcj-keyword">if</span> <span class="hcj-keyword">let</span> <span class="hcj-variable">Some</span>(answer) = res {
+    todo!(<span class="hcj-string">&quot;do something&quot;</span>);
+} <span class="hcj-keyword">else</span> {
+    <span class="hcj-built_in">panic!</span>(<span class="hcj-string">&quot;drat!&quot;</span>);
+}
+
+<span class="hcj-comment">// You can obviously also just `unwrap()` the result, making</span>
+<span class="hcj-comment">// the program crash if the value is `None`...</span></code></pre>
+
+    <p>
+      This is probably fine if you're just doing one or two of these operations,
+      feeding the result of the first as the input into the second, returning the
+      result of the second operation. But surely this gets unwieldy very fast.
+    </p>
+
+<pre><code class="hcj language-rust"><span class="hcj-keyword">fn</span> <span class="hcj-title function_">op2</span>(input: <span class="hcj-type">usize</span>) <span class="hcj-punctuation">-&gt;</span> <span class="hcj-type">Option</span>&lt;<span class="hcj-type">String</span>&gt; { <span class="hcj-comment">/* ... */</span> }
+<span class="hcj-keyword">fn</span> <span class="hcj-title function_">op3</span>(input: <span class="hcj-type">String</span>) <span class="hcj-punctuation">-&gt;</span> <span class="hcj-type">Option</span>&lt;User&gt; { <span class="hcj-comment">/* ... */</span> }
+
+<span class="hcj-keyword">fn</span> <span class="hcj-title function_">my_compound_op</span>() <span class="hcj-punctuation">-&gt;</span> <span class="hcj-type">Option</span>&lt;User&gt; {
+    <span class="hcj-keyword">match</span> <span class="hcj-title function_ invoke__">fallible</span>() {
+        <span class="hcj-title function_ invoke__">Some</span>(answer) =&gt; <span class="hcj-keyword">match</span> <span class="hcj-title function_ invoke__">op2</span>(answer) {
+            <span class="hcj-title function_ invoke__">Some</span>(<span class="hcj-type">str</span>) =&gt; <span class="hcj-title function_ invoke__">op3</span>(<span class="hcj-type">str</span>)
+            <span class="hcj-literal">None</span> =&gt; <span class="hcj-literal">None</span>
+        },
+        <span class="hcj-literal">None</span> =&gt; <span class="hcj-literal">None</span>
+    }
+}</code></pre>
+
+    <p>
+      Wow, three levels deep and we've already got a nice tower. We obviously
+      see a repetition here: when chaining two fallible operations together, we
+      first check if the first failed, and only if it hasn't failed, we attempt
+      the second, otherwise returning the result of the first. Oh how wonderful
+      it would be <i>if only there was a pattern to abstract this repetitive
+      logic away!</i>
+    </p>
+
+    <p>
+      ...I think you understand what I mean. The monad allows us to do precisely
+      this. <code>Option&lt;T&gt;</code>, implements <i>a monadic interface</i>,
+      therefore the type provides a method called <code>.and_then()</code>. On
+      an <code>Option&lt;T&gt;</code>, it takes a callback of type <code>fn(T)
+      -> Option&lt;T&gt;</code><sup><a id="2-up" href="#2">2</a></sup>. This
+      means that the code above becomes:
+    </p>
+
+<pre><code class="hcj language-rust"><span class="hcj-title function_ invoke__">my_compound_op</span>() <span class="hcj-punctuation">-&gt;</span> <span class="hcj-type">Option</span>&lt;User&gt; {
+    <span class="hcj-title function_ invoke__">fallible</span>()
+        .<span class="hcj-title function_ invoke__">and_then</span>(op2)
+        .<span class="hcj-title function_ invoke__">and_then</span>(op3)
+}</code></pre>
+
+    <p>
+      So now you know what the Monad is and how it might be practical for
+      you. Obviously, <code>Option&lt;T&gt;</code> isn't the only thing that
+      implements <i>a monadic interface</i>. <code>Result&lt;T&gt;</code>
+      implements it as well. You can of course implement your own monadic types.
+    </p>
+
+    <h2>Going deeper</h2>
+
+    <p>
+      I might've lied to you just a little in the previous section; the Monad
+      isn't useful just for propagating failure. It encapsulates the general
+      notion of chaining computations. The operator that facilitates this
+      chaining is called <code>(>>=)</code>, "bind" (because it <i>binds</i> a
+      function to the result of a previous computation), or, as we saw in Rust,
+      "and then". In pseudo-Rust, the type of the operator is this:
+    </p>
+
+<pre><code class="hcj language-rust"><span class="hcj-keyword">fn</span> <span class="hcj-title function_">and_then</span>&lt;M, U, F&gt;(<span class="hcj-keyword">self</span>: M, f: F) <span class="hcj-punctuation">-&gt;</span> M&lt;U&gt;
+<span class="hcj-keyword">where</span>
+    F: <span class="hcj-title function_ invoke__">FnOnce</span>(T) <span class="hcj-punctuation">-&gt;</span> M&lt;U&gt;,</code></pre>
+
+    <p>
+      As you can see, there is no mention of some sort of failure. It is a
+      generalization of performing the following steps:
+    </p>
+
+    <ol>
+      <li>
+        <b>Evaluate the monadic state</b>
+        <ul>
+          <li>
+            In the case of <code>Option&lt;T&gt;</code>, "Am I
+            <code>None</code>? If I am, the result is <code>None</code> too!")
+          </li>
+        </ul>
+      </li>
+
+      <li>Pass the inner value of the monad to the callback</li>
+      <li>
+        <b>Transform the result</b>
+        <ul>
+          <li>
+            In the case of <code>Option&lt;T&gt;</code>, this step is a no-op.
+          </li>
+        </ul>
+      </li>
+      <li>Return the result</li>
+    </ol>
+
+    <p>
+      The bold steps are what you're actually defining in a custom
+      <code>.and_then()</code> definition. The interesting thing is, this
+      doesn't have to relate to error handling at all! To illustrate what
+      I mean, let's try to write a <code>Writer</code> monad. I'm under the
+      impression that a <code>Reader</code> monad is simpler to understand,
+      but that wasn't the case for me at all, and so I'm instead using a
+      <code>Writer</code>, which seems absolutely primitive to me in comparison.
+    </p>
+
+    <p>
+      A <code>Writer</code> is a Monad that encapsulates a value and some state
+      that can be written to. You could for example have a series of functions
+      that transform a number and also emit log entries for their modifications.
+      Suppose that we're writing this in a library context and so we don't
+      access standard output/error directly, only appending the logs to a vector
+      of strings:
+    </p>
+
+<pre><code class="hcj language-rust"><span class="hcj-keyword">fn</span> <span class="hcj-title function_">square</span>(input: <span class="hcj-type">usize</span>, log: &amp;<span class="hcj-keyword">mut</span> <span class="hcj-type">Vec</span>&lt;<span class="hcj-type">String</span>&gt;) <span class="hcj-punctuation">-&gt;</span> <span class="hcj-type">usize</span> {
+    <span class="hcj-keyword">let</span> <span class="hcj-variable">res</span> = input * input;
+    log.<span class="hcj-title function_ invoke__">push</span>(<span class="hcj-string">&quot;squared&quot;</span>.<span class="hcj-title function_ invoke__">to_owned</span>());
+    res
+}
+
+<span class="hcj-keyword">fn</span> <span class="hcj-title function_">divide</span>(input: <span class="hcj-type">usize</span>, log: &amp;<span class="hcj-keyword">mut</span> <span class="hcj-type">Vec</span>&lt;<span class="hcj-type">String</span>&gt;) <span class="hcj-punctuation">-&gt;</span> <span class="hcj-type">usize</span> {
+    <span class="hcj-keyword">let</span> <span class="hcj-variable">res</span> = input / <span class="hcj-number">3</span>;
+    log.<span class="hcj-title function_ invoke__">push</span>(<span class="hcj-string">&quot;divided&quot;</span>.<span class="hcj-title function_ invoke__">to_owned</span>());
+    res
+}
+
+<span class="hcj-keyword">fn</span> <span class="hcj-title function_">increment</span>(input: <span class="hcj-type">usize</span>, log: &amp;<span class="hcj-keyword">mut</span> <span class="hcj-type">Vec</span>&lt;<span class="hcj-type">String</span>&gt;) <span class="hcj-punctuation">-&gt;</span> <span class="hcj-type">usize</span> {
+    <span class="hcj-keyword">let</span> <span class="hcj-variable">res</span> = input + <span class="hcj-number">1</span>;
+    log.<span class="hcj-title function_ invoke__">push</span>(<span class="hcj-string">&quot;incremented&quot;</span>.<span class="hcj-title function_ invoke__">to_owned</span>());
+    res
+}
+
+<span class="hcj-comment">// usage</span>
+<span class="hcj-keyword">fn</span> <span class="hcj-title function_">computation</span>() {
+    <span class="hcj-keyword">let</span> <span class="hcj-variable">x</span> = <span class="hcj-number">0</span>;
+    <span class="hcj-keyword">let</span> <span class="hcj-keyword">mut </span><span class="hcj-variable">logs</span> = <span class="hcj-type">Vec</span>::<span class="hcj-title function_ invoke__">new</span>();
+    
+    <span class="hcj-keyword">let</span> <span class="hcj-variable">res</span> = <span class="hcj-title function_ invoke__">divide</span>(<span class="hcj-title function_ invoke__">square</span>(<span class="hcj-title function_ invoke__">increment</span>(<span class="hcj-title function_ invoke__">increment</span>(x, &amp;<span class="hcj-keyword">mut</span> logs), &amp;<span class="hcj-keyword">mut</span> logs), &amp;<span class="hcj-keyword">mut</span> logs), &amp;<span class="hcj-keyword">mut</span> logs);
+    _ = res;
+}</code></pre>
+
+    <p>
+      Each and every function has to take in a mutable reference to a vector
+      as an argument, and then has to handle pushing to it. This is duplicated
+      logic. Also, as you can see, these functions don't compose well. We can do
+      better. As I already mentioned, the Monad is a pattern that allows us to
+      chain computations and extract duplicated logic. The duplicated logic here
+      is the pushing to the vector of logs. Eliminating this dependency also
+      allows us to eliminate the argument holding the mutable reference to the
+      vector completely.
+    </p>
+
+    <p>
+      The role of the vector of logs is to hold some mutable state that can
+      be written to by the functions. They don't need to read it, only append
+      to it<sup><a id="3-up" href="#3">3</a></sup>.
+    </p>
+
+    <p>
+      We can instead define a <code>Writer</code> struct that will
+      hold this state for us. It doesn't even have to be mutable; the
+      <code>.and_then()</code> operator will handle transfer of ownership for
+      us. The definition will look something like this:
+    </p>
+
+<pre><code class="hcj language-rust"><span class="hcj-keyword">struct</span> <span class="hcj-title class_">Writer</span> {
+    val: <span class="hcj-type">usize</span>,
+    logs: <span class="hcj-type">Vec</span>&lt;<span class="hcj-type">String</span>&gt;
+}</code></pre>
+
+    <p>
+      Now we need to define the <code>.and_then()</code> method:
+    </p>
+
+
+<pre><code class="hcj language-rust"><span class="hcj-keyword">impl</span> <span class="hcj-title class_">Writer</span> {
+    <span class="hcj-comment">// don&#x27;t worry too much about the type of `f` here</span>
+    <span class="hcj-keyword">fn</span> <span class="hcj-title function_">and_then</span>(<span class="hcj-keyword">mut</span> <span class="hcj-keyword">self</span>, f: <span class="hcj-keyword">impl</span> <span class="hcj-title class_">FnOnce</span>(<span class="hcj-type">usize</span>) <span class="hcj-punctuation">-&gt;</span> Writer) <span class="hcj-punctuation">-&gt;</span> Writer {
+        <span class="hcj-keyword">let</span> <span class="hcj-keyword">mut </span><span class="hcj-variable">res</span> = <span class="hcj-title function_ invoke__">f</span>(<span class="hcj-keyword">self</span>.val);
+        <span class="hcj-keyword">self</span>.logs.<span class="hcj-title function_ invoke__">append</span>(&amp;<span class="hcj-keyword">mut</span> res.logs); <span class="hcj-comment">// combine the two histories</span>
+        
+        Writer {
+            val: res.val,
+            logs: <span class="hcj-keyword">self</span>.logs
+        }
+    }
+}</code></pre>
+
+    <p>
+      At this point, we can rewrite our transformation functions and our usage
+      of them like this:
+    </p>
+
+<pre><code class="hcj language-rust"><span class="hcj-keyword">fn</span> <span class="hcj-title function_">square</span>(input: <span class="hcj-type">usize</span>) <span class="hcj-punctuation">-&gt;</span> Writer {
+    Writer {
+        val: input * input,
+        logs: <span class="hcj-built_in">vec!</span>[<span class="hcj-string">&quot;squared&quot;</span>.<span class="hcj-title function_ invoke__">to_owned</span>()]
+    }
+}
+
+<span class="hcj-keyword">fn</span> <span class="hcj-title function_">divide</span>(input: <span class="hcj-type">usize</span>) <span class="hcj-punctuation">-&gt;</span> Writer {
+    Writer {
+        val: input / <span class="hcj-number">3</span>,
+        logs: <span class="hcj-built_in">vec!</span>[<span class="hcj-string">&quot;divided&quot;</span>.<span class="hcj-title function_ invoke__">to_owned</span>()]
+    }
+}
+
+<span class="hcj-keyword">fn</span> <span class="hcj-title function_">increment</span>(input: <span class="hcj-type">usize</span>) <span class="hcj-punctuation">-&gt;</span> Writer {
+    Writer {
+        val: input + <span class="hcj-number">1</span>,
+        logs: <span class="hcj-built_in">vec!</span>[<span class="hcj-string">&quot;incremented&quot;</span>.<span class="hcj-title function_ invoke__">to_owned</span>()]
+    }
+}
+
+<span class="hcj-comment">// usage</span>
+<span class="hcj-keyword">fn</span> <span class="hcj-title function_">computation</span>() {
+    <span class="hcj-keyword">let</span> <span class="hcj-variable">x</span> = Writer {
+        val: <span class="hcj-number">0</span>,
+        logs: <span class="hcj-built_in">vec!</span>[],
+    };
+    
+    <span class="hcj-keyword">let</span> <span class="hcj-variable">res</span> = x
+        .<span class="hcj-title function_ invoke__">and_then</span>(increment)
+        .<span class="hcj-title function_ invoke__">and_then</span>(increment)
+        .<span class="hcj-title function_ invoke__">and_then</span>(square)
+        .<span class="hcj-title function_ invoke__">and_then</span>(divide);
+    _ = res;
+}</code></pre>
+
+    <p>
+      Let's see how our <code>and_then()</code> definition fits into the list of
+      steps I outlined above:
+    </p>
+
+    <ol>
+      <li>
+        Evaluate the monadic state
+        <ul>
+          <li>Our definition doesn't actually need to do anything here</li>
+        </ul>
+      </li>
+      <li>Pass the inner value of the monad to the callback</li>
+      <li>
+        <b>Transform the result</b>
+        <ul>
+          <li>
+            Our definition takes the returned <code>Writer</code> Monad and
+            combines it with the <code>Writer</code> Monad from the previous
+            result. This is the main point of the <code>Writer</code>.
+          </li>
+        </ul>
+      </li>
+      <li>Return the result</li>
+    </ol>
+
+    <p>
+      There's no doubt there's room for improvement here. You could add
+      a <code>Writer::new</code> associated function for instantiating
+      a <code>Writer</code> with an empty log<sup><a id="4-up"
+      href="#4">4</a></sup>, you could add more methods to your
+      <code>Writer</code>, etc., but these are beyond the scope of this article.
+    </p>
+
+    <hr>
+
+    <p id="1">
+      1: The usage of <code>Maybe</code> is very much
+      intentional. <code>Maybe</code> is pretty much analogous to Rust's
+      <code>Option&lt;T&gt;</code> type in Haskell. You can find its documentation
+      <a
+        href="https://hackage-content.haskell.org/package/base/docs/Prelude.html#t:Maybe"
+        target="_blank"
+        rel="noreferrer"
+      >here</a>. <a href="#1-up">&#x21a9;</a>
+    </p>
+    <p id="2">
+      2: Actually, the callback type is a little more complicated...
+      What I wrote in the text above is the type of a function pointer,
+      but the actual callback type is a trait object that implements the
+      <a
+        href="https://doc.rust-lang.org/std/ops/trait.FnOnce.html"
+        target="_blank"
+        rel="noreferrer"><code>FnOnce</code> trait</a>. You can see the
+      definition of the method
+      <a
+        href="https://doc.rust-lang.org/std/option/enum.Option.html#method.and_then"
+        target="_blank"
+      >here</a>. This allows for more flexible inputs; the callback can be an
+      <code>fn</code> pointer, but also a closure. I highly recommend you to
+      read up on the <code>FnOnce</code> trait and the <code>Fn</code> traits
+      in general if you want to know more about how this stuff works; it is very
+      interesting reading. <a href="#2-up">&#x21a9;</a>
+    </p>
+    <p id="3">
+      3: In this case, we know that the writable state is a <code>Vec</code>, so
+      it can be appended to. But the operation of combining new state with old
+      state, or rather combining two values, can be abstracted away as well.
+      Congratulations, you've just found out what a
+      <a
+        href="https://hackage-content.haskell.org/package/base/docs/Prelude.html#t:Monoid"
+        target="_blank"
+        rel="noreferrer"
+      ><code>Monoid</code></a> is for! <a href="#3-up">&#x21a9;</a>
+    </p>
+
+    <p id="4">
+      4: And in fact, you probably should! The <code>Writer</code> we've built
+      here doesn't actually satisfy the mathematical definition of a Monad: it's
+      lacking a function to <i>lift</i> something into the Monad. In Haskell,
+      this function is (admittedly, a little confusingly) dubbed
+      <a
+        href="https://hackage-content.haskell.org/package/base/docs/Prelude.html#v:return"
+        target="_blank"
+        rel="noreferrer"
+        ><code>return</code></a>. <a href="#4-up">&#x21a9;</a>
+    </p>
+
+    <hr>
+    
+    <footer>
+      <i>Hey! Don't look at my feet!</i> (get it? 'cause it's a footer...)
+      Anyways, this is a static website served with a simple HTTP server. Check
+      out the
+      <a
+        href="https://github.com/stanekondrej/what-the-monad"
+        target="_blank"
+        rel="noreferrer"
+      >source code</a>!
+    </footer>
+  </main>
+</body>
+</html>

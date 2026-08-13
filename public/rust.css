@@ -1,0 +1,92 @@
+pre code.hcj {
+	display: block;
+	overflow-x: auto;
+	padding: 1em;
+}
+
+code.hcj {
+	padding: 3px 5px;
+}
+
+.hcj-comment,
+.hcj-meta {
+	color: #9893a5;
+}
+
+.hcj-deletion,
+.hcj-doctag,
+.hcj-regexp,
+.hcj-selector-attr,
+.hcj-selector-class,
+.hcj-selector-id,
+.hcj-selector-pseudo,
+.hcj-tag,
+.hcj-template-tag,
+.hcj-variable.language_ {
+	color: #b4637a;
+}
+
+.hcj-link,
+.hcj-literal,
+.hcj-number,
+.hcj-params,
+.hcj-template-variable,
+.hcj-type,
+.hcj-variable {
+	color: #d7827e;
+}
+
+.hcj-attribute,
+.hcj-built_in {
+	color: #ea9d34;
+}
+
+.hcj-keyword,
+.hcj-property,
+.hcj-selector-tag,
+.hcj-subst,
+.hcj-title,
+.hcj-title.class_,
+.hcj-title.class_.inherited__,
+.hcj-title.function_ {
+	color: #56949f;
+}
+
+.hcj-addition,
+.hcj-bullet,
+.hcj-quote,
+.hcj-string,
+.hcj-symbol {
+	color: #286983;
+}
+
+.hcj-code,
+.hcj-formula,
+.hcj-section {
+	color: #d7827e;
+}
+
+.hcj-attr,
+.hcj-char.escape_,
+.hcj-keyword,
+.hcj-name,
+.hcj-operator {
+	color: #907aa9;
+}
+
+.hcj-punctuation {
+	color: #575279;
+}
+
+.hcj {
+	background: #faf4ed;
+	color: #575279;
+}
+
+.hcj-emphasis {
+	font-style: italic;
+}
+
+.hcj-strong {
+	font-weight: 700;
+}
